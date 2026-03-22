@@ -83,13 +83,13 @@ export interface ElectronAPI {
   importConfig: (filePath: string) => Promise<CliResult>;
   removeConfig: (configName: string) => Promise<CliResult>;
   listSessions: () => Promise<{ sessions: VpnSession[]; error?: string }>;
-  startSession: (configName: string) => Promise<CliResult>;
+  startSession: (configPath: string) => Promise<CliResult>;
   disconnectSession: (sessionPath: string) => Promise<CliResult>;
   getSessionStats: (sessionPath: string) => Promise<CliResult>;
   getSettings: () => Promise<AppSettings>;
   setSettings: (settings: Partial<AppSettings>) => Promise<void>;
   getAllProfileMeta: () => Promise<Record<string, ProfileMeta>>;
-  setProfileMeta: (configName: string, meta: Partial<ProfileMeta>) => Promise<void>;
+  setProfileMeta: (configPath: string, meta: Partial<ProfileMeta>) => Promise<void>;
   removeProfileMeta: (configName: string) => Promise<void>;
   openFileDialog: () => Promise<string | null>;
   windowMinimize: () => void;

@@ -216,15 +216,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Remove config
   ipcMain.handle(
     "openvpn3:config-remove",
-    async (_event, configName: string): Promise<CliResult> => {
-      const safe = configName.replace(/[`$\\;|&"]/g, "");
+    async (_event, configPath: string): Promise<CliResult> => {
+      const safe = configPath.replace(/[`$\\;|&"]/g, "");
+      const removeCommand=`echo "YES" | openvpn3 config-remove --config-path "${safe}"`
       const result = await runCommand(
-        `openvpn3 config-remove --config "${safe}"`,
+        removeCommand
       );
       // openvpn3 may ask for confirmation via stdin - use --force if available or pipe yes
       if (!result.success && result.stderr.includes("confirm")) {
         return runCommand(
-          `echo "yes" | openvpn3 config-remove --config "${safe}"`,
+          `echo "yes" | ${removeCommand}`,
         );
       }
       return result;
@@ -244,10 +245,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Start session
   ipcMain.handle(
     "openvpn3:session-start",
-    async (_event, configName: string): Promise<CliResult> => {
-      const safe = configName.replace(/[`$\\;|&"]/g, "");
+    async (_event, configPath: string): Promise<CliResult> => {
+      const safe = configPath.replace(/[`$\\;|&"]/g, "");
       // Start without --wait to avoid blocking
-      return runCommand(`openvpn3 session-start --config "${safe}"`);
+      return runCommand(`openvpn3 session-start --config-path "${safe}"`);
     },
   );
 
@@ -308,9 +309,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     },
   );
 
-  ipcMain.handle("profile-meta:remove", (_event, configName: string): void => {
+  ipcMain.handle("profile-meta:remove", (_event, configPath: string): void => {
     const all = store.get("profileMeta", {});
-    delete all[configName];
+    delete all[configPath];
     store.set("profileMeta", all);
   });
 
