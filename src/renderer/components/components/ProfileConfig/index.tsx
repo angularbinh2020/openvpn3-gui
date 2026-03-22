@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { ProfileMeta, VpnProfile, VpnSession } from "../../../../shared/types";
 
 interface Props {
@@ -23,7 +23,7 @@ export const ProfileConfig = ({
   handleConnect,
   setConfirm,
 }: Props) => {
-  const session = getSessionForProfile(profile.path);
+  const session = getSessionForProfile(profile.name);
   const isConnected = !!session;
   const meta = getProfileMeta(profile.path);
   const isConnecting = loadingState[profile.name + ":connect"];

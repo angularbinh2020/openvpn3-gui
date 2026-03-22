@@ -52,23 +52,16 @@ export function ProfileList({
       setLoading(false);
     }
   }, [showToast]);
+
   const getProfileMeta = (configPath: string) => {
     return profileMetas[getConfigId(configPath)];
   };
-  useEffect(() => {
-    loadProfiles();
-  }, [loadProfiles]);
 
   const setItemLoading = (key: string, val: boolean) =>
     setLoadingState((s) => ({ ...s, [key]: val }));
 
-  const getSessionForProfile = (configPath: string) =>
-    sessions.find(
-      (s) =>
-        s.configName === configPath ||
-        s.configPath === configPath ||
-        s.sessionPath.includes(configPath),
-    );
+  const getSessionForProfile = (configName: string) =>
+    sessions.find((s) => s.configName === configName);
 
   const handleImportFile = async (filePath?: string) => {
     const path = filePath || (await window.electronAPI.openFileDialog());
@@ -131,6 +124,7 @@ export function ProfileList({
       if (result.success || result.stdout.includes("Session started")) {
         showToast(`Connecting to ${configName}...`, "info");
         setTimeout(() => onSessionsChange(), 2000);
+        await loadProfiles();
       } else {
         showToast(`Connect failed: ${result.stderr || result.stdout}`, "error");
       }
@@ -148,6 +142,7 @@ export function ProfileList({
       if (result.success) {
         showToast(`Disconnected from ${configName}`, "success");
         setTimeout(() => onSessionsChange(), 1000);
+        await loadProfiles();
       } else {
         showToast(`Disconnect failed: ${result.stderr}`, "error");
       }
@@ -197,8 +192,8 @@ export function ProfileList({
       .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => {
         if (sortBy === "status") {
-          const aConn = !!getSessionForProfile(a.path);
-          const bConn = !!getSessionForProfile(b.path);
+          const aConn = !!getSessionForProfile(a.name);
+          const bConn = !!getSessionForProfile(b.name);
           if (aConn !== bConn) return aConn ? -1 : 1;
         }
         const aFav = !!getProfileMeta(a.path)?.favorite;
@@ -207,6 +202,10 @@ export function ProfileList({
         return a.name.localeCompare(b.name);
       });
   }, [profiles, profileMetas]);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
 
   return (
     <div>
