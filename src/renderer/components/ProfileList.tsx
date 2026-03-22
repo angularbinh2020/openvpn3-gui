@@ -1,8 +1,9 @@
 // src/renderer/components/ProfileList.tsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import type { VpnProfile, VpnSession, ProfileMeta } from "../../shared/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useToast } from "../hooks/useToast";
+import { getConfigId } from "../../shared/utils";
 
 interface Props {
   sessions: VpnSession[];
@@ -37,7 +38,6 @@ export function ProfileList({
     tags: string;
   } | null>(null);
   const { showToast } = useToast();
-
   const loadProfiles = useCallback(async () => {
     setLoading(true);
     try {
@@ -50,7 +50,9 @@ export function ProfileList({
       setLoading(false);
     }
   }, [showToast]);
-
+const getProfileMeta=(configPath:string)=>{
+  return profileMetas[getConfigId(configPath)]
+}
   useEffect(() => {
     loadProfiles();
   }, [loadProfiles]);
@@ -155,7 +157,8 @@ export function ProfileList({
   };
 
   const handleToggleFavorite = async (configPath: string) => {
-    const meta = profileMetas[configPath];
+    const meta = getProfileMeta(configPath);
+    console.log(meta, configPath);
     await window.electronAPI.setProfileMeta(configPath, {
       favorite: !meta?.favorite,
     });
@@ -187,19 +190,22 @@ export function ProfileList({
     }
   };
 
-  const filtered = profiles
-    .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => {
-      if (sortBy === "status") {
-        const aConn = !!getSessionForProfile(a.path);
-        const bConn = !!getSessionForProfile(b.path);
-        if (aConn !== bConn) return aConn ? -1 : 1;
-      }
-      const aFav = !!profileMetas[a.name]?.favorite;
-      const bFav = !!profileMetas[b.name]?.favorite;
-      if (aFav !== bFav) return aFav ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
+  const filtered = useMemo(() => {
+  console.log(profileMetas);
+    return profiles
+      .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => {
+        if (sortBy === "status") {
+          const aConn = !!getSessionForProfile(a.path);
+          const bConn = !!getSessionForProfile(b.path);
+          if (aConn !== bConn) return aConn ? -1 : 1;
+        }
+        const aFav = !!getProfileMeta(a.path)?.favorite;
+        const bFav = !!getProfileMeta(b.path)?.favorite;
+        if (aFav !== bFav) return aFav ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [profiles, profileMetas]);
 
   return (
     <div>
@@ -365,7 +371,7 @@ export function ProfileList({
 
             return (
               <div
-                key={profile.path}
+                key={profile.path + meta.favorite ? "-f" : ""}
                 className={`profile-card ${isConnected ? "connected" : ""}`}
               >
                 <div

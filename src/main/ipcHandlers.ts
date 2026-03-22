@@ -11,8 +11,8 @@ import type {
   OpenVPN3Available,
   AppSettings,
   ProfileMeta,
-  ConfigRaw,
 } from "../shared/types";
+import { getConfigId } from "../shared/utils";
 
 const execAsync = promisify(exec);
 
@@ -71,8 +71,6 @@ async function runCommand(cmd: string): Promise<CliResult> {
 
 function parseProfilesJson(raw: string): VpnProfile[] {
   try {
-    log.log(`>>> Parse profile`);
-    log.log(raw);
     const ObjData = JSON.parse(raw);
     const profileNames = Object.keys(ObjData);
     return profileNames.map((field) => {
@@ -181,7 +179,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // List configs
   ipcMain.handle("openvpn3:configs-list", async () => {
-    log.log(">>> Get config list");
     const result = await runCommand("openvpn3 configs-list --json");
     // if (!result.success) {
     //   // try without --json
@@ -218,15 +215,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     "openvpn3:config-remove",
     async (_event, configPath: string): Promise<CliResult> => {
       const safe = configPath.replace(/[`$\\;|&"]/g, "");
-      const removeCommand=`echo "YES" | openvpn3 config-remove --config-path "${safe}"`
-      const result = await runCommand(
-        removeCommand
-      );
+      const removeCommand = `echo "YES" | openvpn3 config-remove --config-path "${safe}"`;
+      const result = await runCommand(removeCommand);
       // openvpn3 may ask for confirmation via stdin - use --force if available or pipe yes
       if (!result.success && result.stderr.includes("confirm")) {
-        return runCommand(
-          `echo "yes" | ${removeCommand}`,
-        );
+        return runCommand(`echo "yes" | ${removeCommand}`);
       }
       return result;
     },
@@ -294,24 +287,27 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle(
     "profile-meta:set",
-    (_event, configName: string, meta: Partial<ProfileMeta>): void => {
+    (_event, configPath: string, meta: Partial<ProfileMeta>): void => {
+      const configId = getConfigId(configPath);
       const all = store.get("profileMeta", {});
-      all[configName] = {
-        configName,
+      const oldState: any = all[configId] || {};
+      all[configId] = {
+        configId,
         tags: [],
         notes: "",
         favorite: false,
         importedAt: new Date().toISOString(),
-        ...(all[configName] as any),
+        ...oldState,
         ...meta,
       };
-      store.set("profileMeta", all);
+      store.set("profileMeta",all);
     },
   );
 
   ipcMain.handle("profile-meta:remove", (_event, configPath: string): void => {
+    const configId = getConfigId(configPath);
     const all = store.get("profileMeta", {});
-    delete all[configPath];
+    delete all[configId];
     store.set("profileMeta", all);
   });
 
