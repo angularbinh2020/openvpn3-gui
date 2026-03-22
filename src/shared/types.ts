@@ -102,3 +102,22 @@ declare global {
     electronAPI: ElectronAPI;
   }
 }
+
+interface AccessControlList {
+  locked_down: boolean;
+  owner: string;
+  public_access: boolean;
+}
+
+export interface ConfigRaw {
+  acl: AccessControlList;
+  dco: boolean;
+  imported: string;
+  imported_tstamp: number;
+  lastused: string;
+  lastused_tstamp: number;
+  name: string;
+  transfer_owner_session: boolean;
+  use_count: number;
+  valid: boolean;
+}

@@ -33,7 +33,7 @@ export function ProfileList({ sessions, onSessionsChange, profileMetas, onMetaCh
     try {
       const result = await window.electronAPI.listConfigs();
       setProfiles(result.profiles || []);
-      console.log(JSON.stringify(result))
+      console.log(`>>> ${JSON.stringify(result)}`)
     } catch (e) {
       showToast('Failed to load profiles', 'error');
       console.error(e)
