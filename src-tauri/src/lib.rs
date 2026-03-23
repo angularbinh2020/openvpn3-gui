@@ -2,6 +2,8 @@
 mod commands;
 mod store;
 
+use tauri::menu::Menu;
+use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
 
 pub fn run() {
@@ -29,6 +31,22 @@ pub fn run() {
             // Initialize store on startup
             let store = tauri_plugin_store::StoreBuilder::new(app, "config.json").build()?;
             app.manage(std::sync::Mutex::new(store));
+            // // Tạo menu rỗng (bắt buộc trên Linux)
+            // let menu = Menu::new(app)?;
+
+            // // Nhúng file icon vào binary (đường dẫn tính từ file lib.rs)
+            // let icon_bytes = include_bytes!("../icons/icon.png");
+
+            // // Giải mã PNG thành RGBA
+            // let img = image::load_from_memory(icon_bytes).expect("Không thể giải mã icon");
+            // let rgba = img.to_rgba8();
+            // let (width, height) = rgba.dimensions();
+
+            // // Tạo Image của Tauri từ dữ liệu RGBA
+            // let icon = tauri::image::Image::new_owned(rgba.into_raw(), width, height);
+
+            // // Tạo tray icon
+            // let _tray = TrayIconBuilder::new().icon(icon).menu(&menu).build(app)?;
             Ok(())
         })
         .run(tauri::generate_context!())
