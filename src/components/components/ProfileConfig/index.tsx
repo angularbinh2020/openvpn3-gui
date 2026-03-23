@@ -1,5 +1,5 @@
 import React from "react";
-import { ProfileMeta, VpnProfile, VpnSession } from "../../../../shared/types";
+import { ProfileMeta, VpnProfile, VpnSession } from "../../../shared/types";
 
 interface Props {
   getProfileMeta: (configPath: string) => ProfileMeta;

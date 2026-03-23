@@ -1,4 +1,5 @@
 // src/shared/types.ts
+// Bỏ ElectronAPI + IpcChannel — dùng Tauri invoke() thay thế
 
 export interface VpnProfile {
   name: string;
@@ -58,59 +59,12 @@ export interface OpenVPN3Available {
   path?: string;
 }
 
-export type IpcChannel =
-  | 'openvpn3:check'
-  | 'openvpn3:configs-list'
-  | 'openvpn3:config-import'
-  | 'openvpn3:config-remove'
-  | 'openvpn3:sessions-list'
-  | 'openvpn3:session-start'
-  | 'openvpn3:session-disconnect'
-  | 'openvpn3:session-stats'
-  | 'settings:get'
-  | 'settings:set'
-  | 'profile-meta:get-all'
-  | 'profile-meta:set'
-  | 'profile-meta:remove'
-  | 'dialog:open-file'
-  | 'window:minimize'
-  | 'window:maximize'
-  | 'window:close';
-
-export interface ElectronAPI {
-  checkOpenVPN3: () => Promise<OpenVPN3Available>;
-  listConfigs: () => Promise<{ profiles: VpnProfile[]; error?: string }>;
-  importConfig: (filePath: string) => Promise<CliResult>;
-  removeConfig: (configName: string) => Promise<CliResult>;
-  listSessions: () => Promise<{ sessions: VpnSession[]; error?: string }>;
-  startSession: (configPath: string) => Promise<CliResult>;
-  disconnectSession: (sessionPath: string) => Promise<CliResult>;
-  getSessionStats: (sessionPath: string) => Promise<CliResult>;
-  getSettings: () => Promise<AppSettings>;
-  setSettings: (settings: Partial<AppSettings>) => Promise<void>;
-  getAllProfileMeta: () => Promise<Record<string, ProfileMeta>>;
-  setProfileMeta: (configPath: string, meta: Partial<ProfileMeta>) => Promise<void>;
-  removeProfileMeta: (configName: string) => Promise<void>;
-  openFileDialog: () => Promise<string | null>;
-  windowMinimize: () => void;
-  windowMaximize: () => void;
-  windowClose: () => void;
-}
-
-declare global {
-  interface Window {
-    electronAPI: ElectronAPI;
-  }
-}
-
-interface AccessControlList {
-  locked_down: boolean;
-  owner: string;
-  public_access: boolean;
-}
-
 export interface ConfigRaw {
-  acl: AccessControlList;
+  acl: {
+    locked_down: boolean;
+    owner: string;
+    public_access: boolean;
+  };
   dco: boolean;
   imported: string;
   imported_tstamp: number;

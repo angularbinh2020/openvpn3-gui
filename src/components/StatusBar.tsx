@@ -1,6 +1,6 @@
 // src/renderer/components/StatusBar.tsx
 import React from 'react';
-import type { OpenVPN3Available, VpnSession } from '../../shared/types';
+import type { OpenVPN3Available, VpnSession } from '../shared/types';
 
 interface Props {
   ovpnInfo: OpenVPN3Available | null;

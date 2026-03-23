@@ -1,8 +1,9 @@
 // src/renderer/components/SessionList.tsx
 import React, { useState } from "react";
-import type { VpnSession } from "../../shared/types";
+import type { VpnSession } from "../shared/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useToast } from "../hooks/useToast";
+import * as api from "../api";
 
 interface Props {
   sessions: VpnSession[];
@@ -55,9 +56,7 @@ export function SessionList({
     setDisconnectTarget(null);
     setDisconnecting((prev) => ({ ...prev, [session.sessionPath]: true }));
     try {
-      const result = await window.electronAPI.disconnectSession(
-        session.sessionPath,
-      );
+      const result = await api.disconnectSession(session.sessionPath);
       if (result.success) {
         showToast(`Disconnected from ${session.configName}`, "success");
         setTimeout(() => onRefresh(), 1000);

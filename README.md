@@ -1,167 +1,153 @@
-# OpenVPN Manager
+# OpenVPN Manager — Tauri Edition
 
-A desktop application for managing OpenVPN3 connections on Linux (linux mint), built with Electron, TypeScript, and React.
-For normal use just download release > extract > run "openvpn-manager" > done
-![UI](./images/image-1.png)
-![Guide start](./images/image-2.png)
+A desktop application for managing OpenVPN3 connections on Linux (Linux Mint / Ubuntu), rebuilt with **Tauri 2 + React + TypeScript + Vite**.
+
+> **Tại sao Tauri?** Electron đóng gói cả Chromium + Node.js (~200 MB RAM idle). Tauri dùng WebKit2GTK của hệ thống và backend Rust nhẹ — idle chỉ ~30–50 MB RAM, file cài đặt nhỏ hơn ~10×.
+
 ---
 
-## Screenshots
+## So sánh Electron vs Tauri
 
-The application features:
-- **Dark industrial terminal aesthetic** — cyan accent on deep navy
-- **Sidebar navigation** — Profiles, Sessions, Settings (collapsible)
-- **Profile cards** — with connect/disconnect, favorites, tags, notes
-- **Session monitor** — live stats (IP, duration, bytes), auto-refresh
-- **Settings panel** — dark/light mode toggle, auto-refresh interval
+| | Electron | Tauri |
+|---|---|---|
+| RAM idle | ~200 MB | ~30–50 MB |
+| Bundle size | ~80 MB | ~6–10 MB |
+| Backend | Node.js | Rust |
+| Renderer | Bundled Chromium | System WebKit2GTK |
+| IPC | `ipcMain` / `contextBridge` | `invoke()` / Tauri commands |
 
 ---
 
 ## Prerequisites
 
-### Node.js
+### Rust
 ```bash
-# Install Node.js 22+ via nvm (recommended)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-nvm install 22.14.0
-nvm use 22.14.0
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
 ```
 
-### OpenVPN3 (https://community.openvpn.net/Pages/OpenVPN3Linux)
+### System deps (Ubuntu/Linux Mint)
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+### Node.js 22+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+nvm install 22 && nvm use 22
+```
+
+### OpenVPN3
 ```bash
 sudo apt install apt-transport-https
-
 curl -fsSL https://packages.openvpn.net/packages-repo.gpg \
   | sudo gpg --dearmor -o /etc/apt/keyrings/openvpn.gpg
-
 echo "deb [signed-by=/etc/apt/keyrings/openvpn.gpg] \
   https://packages.openvpn.net/openvpn3/debian \
   $(lsb_release -cs) main" \
   | sudo tee /etc/apt/sources.list.d/openvpn3.list
-
 sudo apt update && sudo apt install openvpn3
 ```
 
 ---
 
-## Setup
+## Setup & Development
 
 ```bash
-# 1. Install dependencies
 npm install
-
-# 2. Build TypeScript (main + renderer)
-npm run build
-
-# 3. Run the application
-npm run electron
-```
-
-### Development (hot reload)
-```bash
-# In separate terminals or via concurrently:
-npm run dev:main       # Watch-compile main process
-npm run dev:renderer   # Watch-compile renderer (webpack)
-npm run electron       # Start Electron (after dist/ exists)
-
-# Or all-in-one:
-npm start
+npm run tauri:dev     # Dev server với hot-reload
 ```
 
 ---
 
-## Building Packages
+## Build & Packaging
 
 ```bash
-# Build .deb (Debian/Ubuntu)
-npm run dist:deb
-
-# Build .AppImage (portable, any distro)
-npm run dist:appimage
-
-# Build both
-npm run dist
+npm run tauri:build             # Build tất cả targets
+npm run tauri:build:deb         # Chỉ .deb
+npm run tauri:build:appimage    # Chỉ .AppImage
 ```
 
-Outputs will be in the `release/` directory.
+Output: `src-tauri/target/release/bundle/`
 
 ---
 
-## Project Structure
+## Cấu trúc dự án
 
 ```
-openvpn-manager/
-├── src/
-│   ├── main/
-│   │   ├── main.ts          # Electron main process, BrowserWindow setup
-│   │   ├── preload.ts       # Context bridge — exposes safe API to renderer
-│   │   └── ipcHandlers.ts   # All openvpn3 CLI calls + electron-store
-│   ├── renderer/
-│   │   ├── App.tsx          # Root React component, layout, state
-│   │   ├── index.tsx        # ReactDOM entry point
-│   │   ├── index.html       # HTML template
-│   │   ├── components/
-│   │   │   ├── ProfileList.tsx    # Import, list, connect, remove profiles
-│   │   │   ├── SessionList.tsx    # Active session monitor
-│   │   │   ├── Settings.tsx       # App settings UI
-│   │   │   ├── StatusBar.tsx      # Bottom status bar
-│   │   │   └── ConfirmDialog.tsx  # Reusable confirmation modal
-│   │   ├── hooks/
-│   │   │   └── useToast.tsx       # Toast notification context
-│   │   └── styles/
-│   │       └── global.css         # All CSS variables + components
-│   └── shared/
-│       └── types.ts          # Shared TypeScript interfaces
-├── package.json
-├── tsconfig.main.json
-├── tsconfig.renderer.json
-├── webpack.renderer.config.js
-├── electron-builder.json
-└── README.md
+openvpn3-gui-tauri/
+├── src/                         # React + TypeScript (renderer)
+│   ├── main.tsx                 # Entry point (thay index.tsx)
+│   ├── App.tsx                  # Root component
+│   ├── api.ts                   # ★ Tauri invoke() — thay window.electronAPI
+│   ├── shared/
+│   │   ├── types.ts             # TypeScript interfaces
+│   │   └── utils.ts
+│   ├── components/
+│   │   ├── ProfileList.tsx
+│   │   ├── SessionList.tsx
+│   │   ├── Settings.tsx
+│   │   ├── StatusBar.tsx
+│   │   ├── ConfirmDialog.tsx
+│   │   └── components/
+│   │       ├── EditProfileMetaDialog/
+│   │       └── ProfileConfig/
+│   ├── hooks/
+│   │   └── useToast.tsx
+│   └── styles/
+│       └── global.css
+├── src-tauri/                   # Rust backend (thay src/main/)
+│   ├── src/
+│   │   ├── main.rs              # Entry
+│   │   ├── lib.rs               # App setup + plugin registration
+│   │   ├── commands.rs          # ★ Tauri commands — thay ipcHandlers.ts
+│   │   └── store.rs             # ★ tauri-plugin-store — thay electron-store
+│   ├── Cargo.toml
+│   ├── build.rs
+│   └── tauri.conf.json          # ★ Thay electron-builder.json
+├── index.html
+├── vite.config.ts               # ★ Thay webpack.renderer.config.js
+├── tsconfig.json                # ★ Gộp tsconfig.main + tsconfig.renderer
+└── package.json
 ```
 
 ---
 
-## Features
+## Mapping: Electron → Tauri
 
-| Feature | Details |
+| Electron | Tauri |
 |---|---|
-| **Import profiles** | File picker dialog + drag & drop `.ovpn` |
-| **List profiles** | Live from `openvpn3 configs-list --json` |
-| **Connect / Disconnect** | `session-start` / `session-manage --disconnect` |
-| **Active sessions** | `sessions-list --json` with auto-refresh |
-| **Profile metadata** | Tags, notes, favorites — persisted via electron-store |
-| **Settings** | Dark/light mode, refresh interval, sort order |
-| **Window state** | Size + position remembered between launches |
-| **Install guide** | Shown automatically if openvpn3 is missing |
-| **Confirmations** | Delete and disconnect require confirmation |
-| **Loading states** | All async actions show spinners |
+| `ipcMain.handle(channel, fn)` | `#[tauri::command] fn my_cmd()` + `generate_handler![]` |
+| `window.electronAPI.foo()` | `import * as api from './api'` → `api.foo()` |
+| `contextBridge` / `preload.ts` | Không cần — `invoke()` built-in |
+| `electron-store` | `tauri-plugin-store` |
+| `electron-log` | `println!` / `eprintln!` (hoặc `log` crate) |
+| `dialog.showOpenDialog()` | `tauri-plugin-dialog` |
+| `BrowserWindow` controls | `getCurrentWindow().minimize()` etc. |
+| `frame: false` + drag | `data-tauri-drag-region` attribute |
+| `webpack` | `vite` |
+| `electron-builder` | `tauri build` |
 
 ---
 
-## Architecture Notes
+## Data storage
 
-- **Security**: All CLI execution happens in the main process via `ipcMain.handle`. The renderer communicates through a typed `contextBridge` API — `nodeIntegration` is disabled.
-- **Data storage**: `electron-store` saves settings and profile metadata in `~/.config/openvpn-manager/config.json`.
-- **CLI parsing**: Uses `--json` flag for structured output; falls back to line-based parsing if unavailable.
-- **Error handling**: All `exec` calls are wrapped in try/catch with stderr forwarded to the UI as toast messages.
+Dữ liệu lưu tại: `~/.config/com.openvpn.manager/config.json`  
+(tương đương `~/.config/openvpn-manager/config.json` của electron-store)
 
 ---
 
 ## Troubleshooting
 
-**"openvpn3: command not found"**  
-Follow the install instructions in Settings → OpenVPN3 Status.
-
-**"Permission denied" on session-start**  
-Add your user to the `openvpn` group:
+**Build fails: `webkit2gtk-4.1` not found**
 ```bash
-sudo usermod -aG openvpn $USER
-# Log out and back in
+sudo apt install libwebkit2gtk-4.1-dev
 ```
 
-**Sessions list is empty after connecting**  
-openvpn3 may take a few seconds to establish the session. The auto-refresh will pick it up, or click Refresh manually.
+**`openvpn3: command not found`**  
+Xem hướng dẫn cài đặt trong Settings → OpenVPN3 Status.
 
-**App won't start (dist/ missing)**  
-Run `npm run build` before `npm run electron`.
+**Permission denied on session-start**
+```bash
+sudo usermod -aG openvpn $USER && newgrp openvpn
+```

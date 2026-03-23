@@ -1,11 +1,12 @@
-// src/renderer/components/ProfileList.tsx
+// src/components/ProfileList.tsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import type { VpnProfile, VpnSession, ProfileMeta } from "../../shared/types";
+import type { VpnProfile, VpnSession, ProfileMeta } from "../shared/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useToast } from "../hooks/useToast";
-import { getConfigId } from "../../shared/utils";
+import { getConfigId } from "../shared/utils";
 import { EditProfileMetaDialog } from "./components/EditProfileMetaDialog";
 import { ProfileConfig } from "./components/ProfileConfig";
+import * as api from "../api";
 
 interface Props {
   sessions: VpnSession[];
@@ -31,19 +32,18 @@ export function ProfileList({
   const [sortBy, setSortBy] = useState<"name" | "status">("name");
   const [importing, setImporting] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [confirm, setConfirm] = useState<{ name: string; path: string } | null>(
-    null,
-  );
+  const [confirm, setConfirm] = useState<{ name: string; path: string } | null>(null);
   const [editMeta, setEditMeta] = useState<{
     path: string;
     notes: string;
     tags: string;
   } | null>(null);
   const { showToast } = useToast();
+
   const loadProfiles = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await window.electronAPI.listConfigs();
+      const result = await api.listConfigs();
       setProfiles(result.profiles || []);
     } catch (e) {
       showToast("Failed to load profiles", "error");
@@ -53,9 +53,8 @@ export function ProfileList({
     }
   }, [showToast]);
 
-  const getProfileMeta = (configPath: string) => {
-    return profileMetas[getConfigId(configPath)];
-  };
+  const getProfileMeta = (configPath: string) =>
+    profileMetas[getConfigId(configPath)];
 
   const setItemLoading = (key: string, val: boolean) =>
     setLoadingState((s) => ({ ...s, [key]: val }));
@@ -64,25 +63,25 @@ export function ProfileList({
     sessions.find((s) => s.configName === configName);
 
   const handleImportFile = async (filePath?: string) => {
-    const path = filePath || (await window.electronAPI.openFileDialog());
+    const path = filePath || (await api.openFileDialog());
     if (!path) return;
     setImporting(true);
     try {
-      const result = await window.electronAPI.importConfig(path);
+      const result = await api.importConfig(path);
       if (result.success) {
         showToast("Profile imported successfully", "success");
         await loadProfiles();
-        const profiles = await window.electronAPI.listConfigs();
-        const imported = profiles.profiles
+        const profilesResult = await api.listConfigs();
+        const imported = profilesResult.profiles
           .sort((a, b) =>
             a.importTimestamp && b.importTimestamp
               ? new Date(a.importTimestamp).getTime() -
                 new Date(b.importTimestamp).getTime()
-              : 0,
+              : 0
           )
           .pop();
         if (imported) {
-          await window.electronAPI.setProfileMeta(imported.path, {
+          await api.setProfileMeta(imported.path, {
             importedAt: new Date().toISOString(),
           });
         }
@@ -90,7 +89,7 @@ export function ProfileList({
       } else {
         showToast(`Import failed: ${result.stderr || result.stdout}`, "error");
       }
-    } catch (e) {
+    } catch {
       showToast("Import error", "error");
     } finally {
       setImporting(false);
@@ -101,10 +100,10 @@ export function ProfileList({
     setConfirm(null);
     setItemLoading(configPath, true);
     try {
-      const result = await window.electronAPI.removeConfig(configPath);
+      const result = await api.removeConfig(configPath);
       if (result.success) {
         showToast("Profile removed", "success");
-        await window.electronAPI.removeProfileMeta(configPath);
+        await api.removeProfileMeta(configPath);
         onMetaChange();
         await loadProfiles();
       } else {
@@ -120,7 +119,7 @@ export function ProfileList({
   const handleConnect = async (configName: string, configPath: string) => {
     setItemLoading(configName + ":connect", true);
     try {
-      const result = await window.electronAPI.startSession(configPath);
+      const result = await api.startSession(configPath);
       if (result.success || result.stdout.includes("Session started")) {
         showToast(`Connecting to ${configName}...`, "info");
         setTimeout(() => onSessionsChange(), 2000);
@@ -138,7 +137,7 @@ export function ProfileList({
   const handleDisconnect = async (sessionPath: string, configName: string) => {
     setItemLoading(configName + ":disconnect", true);
     try {
-      const result = await window.electronAPI.disconnectSession(sessionPath);
+      const result = await api.disconnectSession(sessionPath);
       if (result.success) {
         showToast(`Disconnected from ${configName}`, "success");
         setTimeout(() => onSessionsChange(), 1000);
@@ -155,16 +154,13 @@ export function ProfileList({
 
   const handleToggleFavorite = async (configPath: string) => {
     const meta = getProfileMeta(configPath);
-    console.log(meta, configPath);
-    await window.electronAPI.setProfileMeta(configPath, {
-      favorite: !meta?.favorite,
-    });
+    await api.setProfileMeta(configPath, { favorite: !meta?.favorite });
     onMetaChange();
   };
 
   const handleSaveMeta = async () => {
     if (!editMeta) return;
-    await window.electronAPI.setProfileMeta(editMeta.path, {
+    await api.setProfileMeta(editMeta.path, {
       notes: editMeta.notes,
       tags: editMeta.tags
         .split(",")
@@ -182,6 +178,7 @@ export function ProfileList({
     const files = Array.from(e.dataTransfer.files);
     for (const file of files) {
       if (file.name.endsWith(".ovpn") || file.name.endsWith(".conf")) {
+        // Tauri: file path comes from dataTransfer in webview
         await handleImportFile((file as File & { path: string }).path);
       }
     }
@@ -201,7 +198,7 @@ export function ProfileList({
         if (aFav !== bFav) return aFav ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
-  }, [profiles, profileMetas]);
+  }, [profiles, profileMetas, sessions, sortBy, search]);
 
   useEffect(() => {
     loadProfiles();
@@ -246,12 +243,7 @@ export function ProfileList({
             {importing ? (
               <span className="spinner" />
             ) : (
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
                 <path
                   fillRule="evenodd"
                   d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
@@ -267,10 +259,7 @@ export function ProfileList({
       {/* Drop zone */}
       <div
         className={`drop-zone ${dragging ? "dragging" : ""}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onClick={() => handleImportFile()}
@@ -288,9 +277,7 @@ export function ProfileList({
             d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
           />
         </svg>
-        <div className="drop-zone-text">
-          Drop .ovpn files here or click to browse
-        </div>
+        <div className="drop-zone-text">Drop .ovpn files here or click to browse</div>
         <div className="drop-zone-hint">Supports .ovpn and .conf files</div>
       </div>
 
@@ -325,25 +312,13 @@ export function ProfileList({
       {loading ? (
         <div className="empty-state">
           <span className="spinner" style={{ width: 24, height: 24 }} />
-          <span
-            style={{
-              color: "var(--text-muted)",
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-            }}
-          >
+          <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
             Loading profiles...
           </span>
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
-          <svg
-            className="empty-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          >
+          <svg className="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -361,33 +336,29 @@ export function ProfileList({
         </div>
       ) : (
         <div className="profiles-grid">
-          {filtered.map((profile) => {
-            return (
-              <ProfileConfig
-                loadingState={loadingState}
-                key={profile.path}
-                getProfileMeta={getProfileMeta}
-                getSessionForProfile={getSessionForProfile}
-                profile={profile}
-                handleToggleFavorite={handleToggleFavorite}
-                setEditMeta={setEditMeta}
-                handleDisconnect={handleDisconnect}
-                handleConnect={handleConnect}
-                setConfirm={setConfirm}
-              />
-            );
-          })}
+          {filtered.map((profile) => (
+            <ProfileConfig
+              loadingState={loadingState}
+              key={profile.path}
+              getProfileMeta={getProfileMeta}
+              getSessionForProfile={getSessionForProfile}
+              profile={profile}
+              handleToggleFavorite={handleToggleFavorite}
+              setEditMeta={setEditMeta}
+              handleDisconnect={handleDisconnect}
+              handleConnect={handleConnect}
+              setConfirm={setConfirm}
+            />
+          ))}
         </div>
       )}
 
-      {/* Confirm remove dialog */}
       {confirm && (
         <ConfirmDialog
           title="Remove Profile"
           body={
             <>
-              Remove <strong>{confirm.name}</strong>? This will delete the
-              configuration from openvpn3.
+              Remove <strong>{confirm.name}</strong>? This will delete the configuration from openvpn3.
             </>
           }
           confirmLabel="Remove"
@@ -397,7 +368,6 @@ export function ProfileList({
         />
       )}
 
-      {/* Edit meta dialog */}
       {editMeta && (
         <EditProfileMetaDialog
           editMeta={editMeta}

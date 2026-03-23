@@ -1,6 +1,6 @@
 // src/renderer/components/Settings.tsx
 import React from "react";
-import type { AppSettings, OpenVPN3Available } from "../../shared/types";
+import type { AppSettings, OpenVPN3Available } from "../shared/types";
 import { useToast } from "../hooks/useToast";
 
 interface Props {

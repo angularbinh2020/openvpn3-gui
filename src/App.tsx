@@ -1,10 +1,11 @@
-// src/renderer/App.tsx
+// src/App.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { AppSettings, OpenVPN3Available, VpnSession, ProfileMeta } from '../shared/types';
+import type { AppSettings, OpenVPN3Available, VpnSession, ProfileMeta } from './shared/types';
 import { ProfileList } from './components/ProfileList';
 import { SessionList } from './components/SessionList';
 import { Settings } from './components/Settings';
 import { StatusBar } from './components/StatusBar';
+import * as api from './api';
 
 type TabId = 'profiles' | 'sessions' | 'settings';
 
@@ -56,13 +57,13 @@ export function App() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load initial data
+  // Load initial data — dùng api.ts thay vì window.electronAPI
   useEffect(() => {
     (async () => {
       const [s, info, metas] = await Promise.all([
-        window.electronAPI.getSettings(),
-        window.electronAPI.checkOpenVPN3(),
-        window.electronAPI.getAllProfileMeta(),
+        api.getSettings(),
+        api.checkOpenVPN3(),
+        api.getAllProfileMeta(),
       ]);
       setSettings(s);
       setOvpnInfo(info);
@@ -74,7 +75,7 @@ export function App() {
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true);
     try {
-      const result = await window.electronAPI.listSessions();
+      const result = await api.listSessions();
       setSessions(result.sessions || []);
       setLastRefresh(new Date());
     } catch {
@@ -87,7 +88,7 @@ export function App() {
   // Setup auto-refresh for sessions
   useEffect(() => {
     if (!settings) return;
-    loadSessions(); // Initial load
+    loadSessions();
 
     if (intervalRef.current) clearInterval(intervalRef.current);
 
@@ -103,9 +104,8 @@ export function App() {
   const handleSettingsChange = async (partial: Partial<AppSettings>) => {
     const updated = { ...settings!, ...partial };
     setSettings(updated);
-    await window.electronAPI.setSettings(partial);
+    await api.setSettings(partial);
 
-    // Apply dark mode to DOM
     if ('darkMode' in partial) {
       document.documentElement.classList.toggle('light-mode', !partial.darkMode);
     }
@@ -114,15 +114,14 @@ export function App() {
   const handleSidebarToggle = async () => {
     const newVal = !sidebarCollapsed;
     setSidebarCollapsed(newVal);
-    await window.electronAPI.setSettings({ sidebarCollapsed: newVal });
+    await api.setSettings({ sidebarCollapsed: newVal });
   };
 
   const handleMetaChange = async () => {
-    const metas = await window.electronAPI.getAllProfileMeta();
+    const metas = await api.getAllProfileMeta();
     setProfileMetas(metas);
   };
 
-  // Apply initial dark mode
   useEffect(() => {
     if (settings) {
       document.documentElement.classList.toggle('light-mode', !settings.darkMode);
@@ -170,9 +169,9 @@ export function App() {
 
   return (
     <div className="app-root">
-      {/* Custom title bar */}
-      <div className="titlebar">
-        <div className="titlebar-left">
+      {/* Custom title bar — drag region phải dùng data-tauri-drag-region */}
+      <div className="titlebar" data-tauri-drag-region>
+        <div className="titlebar-left" data-tauri-drag-region>
           <div className="titlebar-logo">
             <svg className="titlebar-logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
@@ -181,7 +180,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="titlebar-center">
+        <div className="titlebar-center" data-tauri-drag-region>
           {ovpnInfo?.available ? (
             <span style={{ color: 'var(--accent-green)' }}>● CONNECTED</span>
           ) : (
@@ -190,17 +189,17 @@ export function App() {
         </div>
 
         <div className="titlebar-controls">
-          <button className="titlebar-btn" onClick={() => window.electronAPI.windowMinimize()} title="Minimize">
+          <button className="titlebar-btn" onClick={api.windowMinimize} title="Minimize">
             <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
               <rect y="5" width="12" height="2" rx="1" />
             </svg>
           </button>
-          <button className="titlebar-btn" onClick={() => window.electronAPI.windowMaximize()} title="Maximize">
+          <button className="titlebar-btn" onClick={api.windowMaximize} title="Maximize">
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
               <rect x="1" y="1" width="10" height="10" rx="1" />
             </svg>
           </button>
-          <button className="titlebar-btn close" onClick={() => window.electronAPI.windowClose()} title="Close">
+          <button className="titlebar-btn close" onClick={api.windowClose} title="Close">
             <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
               <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
